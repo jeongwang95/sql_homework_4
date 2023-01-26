@@ -10,19 +10,23 @@ ADD COLUMN rental_duration INTERVAL;
 
 SELECT *
 FROM payment
-WHERE rental_id = 1182;
+WHERE rental_id = 14098;
 
 SELECT *
 FROM rental
-WHERE rental_id = 1182;
+ORDER BY rental_duration DESC;
 
-CREATE OR REPLACE PROCEDURE lateFee(feeAmount DECIMAL)
+CREATE OR REPLACE PROCEDURE lateFee(feeAmount DECIMAL, rightNow TIMESTAMP WITHOUT TIME ZONE)
 LANGUAGE plpgsql
 AS $$
 BEGIN
 	-- populate rental_duration column with an interval
 	UPDATE rental
 	SET rental_duration = return_date - rental_date;
+
+	UPDATE rental
+	SET rental_duration = rightNow - rental_date
+	WHERE return_date is NULL;
 
 	UPDATE payment
 	SET amount = amount + feeAmount
@@ -36,7 +40,7 @@ BEGIN
 END;
 $$
 
-CALL lateFee(.01);
+CALL lateFee(5, LOCALTIMESTAMP);
 
 -- 2. Add a new column in the customer table for Platinum Member. This can be a boolean.
 -- 	  Platinum Members are any customers who have spent over $200. 
