@@ -16,6 +16,19 @@ SELECT *
 FROM rental
 ORDER BY rental_duration DESC;
 
+ALTER TABLE payment
+ALTER COLUMN amount TYPE DECIMAL;
+
+DROP FUNCTION lateFeeCalc;
+
+CREATE OR REPLACE FUNCTION lateFeeCalc(_rental_duration INTERVAL, feeAmount DECIMAL)
+RETURNS DECIMAL
+AS $$
+	BEGIN
+		RETURN feeAmount * (EXTRACT(EPOCH FROM _rental_duration) / EXTRACT(EPOCH FROM INTERVAL '7 days'));
+	END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE PROCEDURE lateFee(feeAmount DECIMAL, rightNow TIMESTAMP WITHOUT TIME ZONE)
 LANGUAGE plpgsql
 AS $$
@@ -29,12 +42,9 @@ BEGIN
 	WHERE return_date is NULL;
 
 	UPDATE payment
-	SET amount = amount + feeAmount
-	WHERE rental_id IN (
-		SELECT rental_id
-		FROM rental
-		WHERE rental_duration > '7 days'
-	);
+	SET amount = amount + lateFeeCalc(rental.rental_duration, feeAmount)
+	FROM rental
+	WHERE payment.rental_id = rental.rental_id AND rental_duration > '7 days';
 	
 	COMMIT;
 END;
